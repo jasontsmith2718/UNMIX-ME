@@ -12,7 +12,7 @@ This GitHub contains relevant script, data and instructions for:
 
   * 3D-CNN for HMFLI analysis
 
-Authors: Jason T. Smith, Marien Ochoa, Dr. Pingkun Yan
+Authors: [Jason T. Smith](https://www.researchgate.net/profile/Jason_Smith96), Marien Ochoa
 
 --------------------------------------------------------------
 
