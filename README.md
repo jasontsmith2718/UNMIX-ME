@@ -1,4 +1,4 @@
-# UNMIX-ME
+# UNMIX-ME (Unmix Multiple Emissions)
 Deep Learning for Hyperspectral Fluorescence Lifetime Image (HFLI) Unmixing
 
 --------------------------------------------------------------
