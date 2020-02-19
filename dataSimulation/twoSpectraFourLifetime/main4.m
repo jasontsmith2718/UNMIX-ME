@@ -2,49 +2,56 @@
 % This script is for generating data for hyperspectral macroscopic
 % fluorescence lifetime unmixing (without RET correction).
 % 
-% Jason T. Smith, 10/17/2019, Rensselaer Polytechnic Institute
+% Jason T. Smith, 02/19/2019, Rensselaer Polytechnic Institute
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 
 load train_binary
 load irf
 load simulationSpectra
 
-% How many data samples to simulate?
-num = 500;
-% Time-points
+% # time-points for TPSFs
 nTG = 256;
 % Gate width (32.6e-3 ns)
 width = 32.6e-3;
 time = [0.5:nTG-0.5]*width;
 
+% # of wavelength channels
+channels = 16;
+% # of expected fluorescent species
+specieN = 4;
+
 % Mono-exponential setup
 eMon = @(a,x) a(1).*exp(-x./a(2));
+
 % Target (x,y)
 nX = 16;
 nY = 16;
 
+% How many data samples to simulate?
+num = 500;
+
 for q = 1:num
     
-    im = train_images(:,:,round(rand()*2000)); % Choose random MNIST
+    im = train_images(:,:,max(round(rand()*2000),1)); % Choose random MNIST
+    
+    if sum(sum(im)) < 250   %1100
+        continue
+    end
+    
     im = imresize(im,[nX nY]); % Resize to (16,16) for memory efficiency
     im = imbinarize(im,.1); % Bring back to binary
-    cw = zeros(nX,nY,16); % pre-allocation of CW spatially
-    tpsfs = zeros(nX,nY,16,nTG); % pre-allocation of TPSF data (4D)
-    
-    r1All_1 = zeros(nX,nY,16); % pre-allocation of individual c1 profiles
-    r1All_2 = zeros(nX,nY,16); % pre-allocation of individual c2 profiles
-    r2All_1 = zeros(nX,nY,16); % pre-allocation of individual c3 profiles
-    r2All_2 = zeros(nX,nY,16); % pre-allocation of individual c3 profiles
+    cw = zeros(nX,nY,channels); % pre-allocation of CW spatially
+    tpsfs = zeros(nX,nY,channels,nTG); % pre-allocation of TPSF data (4D)
+    rAll = zeros(nX,nY,channels,specieN); % pre-allocation of emission profiles (4D)
 
-    t1_1 = im.*(rand()*.1 + 1); % Fluorophore #1_1
-    t1_2 = im.*(rand()*.1 + .45); % Fluorophore #1_2
-    t2_1 = im.*(rand()*.1 + .25); % Fluorophore #2_1
-    t2_2 = im.*(rand()*.1 + 1.5); % Fluorophore #2_2
-    
-    c1Im_1 = zeros(size(im)); 
-    c1Im_2 = zeros(size(im));
-    c2Im_1 = zeros(size(im));
-    c2Im_2 = zeros(size(im));
+    t1_1 = im.*(rand()*.15 + 1); % Fluorophore #1_1 (between 1-1.15 ns)
+    t1_2 = im.*(rand()*.15 + .45); % Fluorophore #1_2 (between 0.45-0.6 ns)
+    t2_1 = im.*(rand()*.15 + .25); % Fluorophore #2_1 (between 0.35-0.5 ns)
+    t2_2 = im.*(rand()*.15 + 1.5); % Fluorophore #2_2 (between 1.5-1.65 ns)
+     
+    % Pre-allocate binary abundance coefficient maps (notating which
+    % fluorohores are present at each spatial location)
+    cIm = zeros([size(im), specieN]);
 
     for i = 1:nX
         for j = 1:nY
@@ -53,549 +60,137 @@ for q = 1:num
             end
             
 %% Spectral profiles assigned are dictated by multiples with max-normalized emission spectra
-                c1_1 = d1N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
-                c1_2 = d1N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
-                c2_1 = d2N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
-                c2_2 = d2N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
-                rV = rand();
-                % Mono-exponential c1_1
-                if rV >= 0 && rV < .1
-%                     c1_1 = zeros(size(c1_1));
-                    c1_2 = zeros(size(c1_2));
-                    c2_1 = zeros(size(c2_1));
-                    c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_1(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-                
-                % Mono-exponential c1_2
-                elseif rV >= .1 && rV < .2
-                    c1_1 = zeros(size(c1_1));
-%                     c1_2 = zeros(size(c1_2));
-                    c2_1 = zeros(size(c2_1));
-                    c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_2(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-                                                       
-                % Mono-exponential c2_1
-                elseif rV >= .2 && rV < .3
-                    c1_1 = zeros(size(c1_1));
-                    c1_2 = zeros(size(c1_2));
-%                     c2_1 = zeros(size(c2_1));
-                    c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c2Im_1(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-%                     Mono c2_2
-                elseif rV >= .3 && rV < .4
-                    c1_1 = zeros(size(c1_1));
-                    c1_2 = zeros(size(c1_2));
-                    c2_1 = zeros(size(c2_1));
-%                     c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c2Im_2(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
+% - A single, experimentally representative emission profile will also do.
+% - Each emission profile is multiplied by a number between 75-500 to
+% randomize overall contribution.
 
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-                    
-%                 bi-exp c1_1 & c1_2
-                elseif rV >= .4 && rV < .5
-%                     c1_1 = zeros(size(c1_1));
-%                     c1_2 = zeros(size(c1_2));
-                    c2_1 = zeros(size(c2_1));
-                    c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_1(i,j) = 1;
-                    c1Im_2(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-                % bi-exp c2_1 & c2_2    
-                elseif rV >= .5 && rV < .6
-                    c1_1 = zeros(size(c1_1));
-                    c1_2 = zeros(size(c1_2));
-%                     c2_1 = zeros(size(c2_1));
-%                     c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c2Im_1(i,j) = 1;
-                    c2Im_2(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-                    % bi-exp c1_2 & c2_1 
-                elseif rV >= .6 && rV < .7
-                    c1_1 = zeros(size(c1_1));
-%                     c1_2 = zeros(size(c1_2));
-%                     c2_1 = zeros(size(c2_1));
-                    c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_2(i,j) = 1;
-                    c2Im_1(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-%                 tri-exp c1_1 c1_2 c2_1
-                elseif rV >= .7 && rV < .8
-%                     c1_1 = zeros(size(c1_1));
-%                     c1_2 = zeros(size(c1_2));
-%                     c2_1 = zeros(size(c2_1));
-                    c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_1(i,j) = 1;
-                    c1Im_2(i,j) = 1;
-                    c2Im_1(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-%                 tri-exp c1_1 c2_1 c2_2
-                elseif rV >= .8 && rV < .9
-%                     c1_1 = zeros(size(c1_1));
-                    c1_2 = zeros(size(c1_2));
-%                     c2_1 = zeros(size(c2_1));
-%                     c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_1(i,j) = 1;
-                    c2Im_1(i,j) = 1;
-                    c2Im_2(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end
-%                     ALL
-                else
-%                     c1_1 = zeros(size(c1_1));
-%                     c1_2 = zeros(size(c1_2));
-%                     c2_1 = zeros(size(c2_1));
-%                     c2_2 = zeros(size(c2_2));
-                    r1All_1(i,j,:) = c1_1;
-                    r1All_2(i,j,:) = c1_2;
-                    r2All_1(i,j,:) = c2_1;
-                    r2All_2(i,j,:) = c2_2;
-                    c1Im_1(i,j) = 1;
-                    c1Im_2(i,j) = 1;
-                    c2Im_1(i,j) = 1;
-                    c2Im_2(i,j) = 1;
-                    
-                    for k = 1:16
-                        e1C_1 = eMon([c1_1(k) t1_1(i,j)],time);
-                        e1C_1 = conv(e1C_1,irf./sum(irf));
-                        e1C_1 = e1C_1(1:nTG);
-                        e1C_1 = poissrnd(round(e1C_1'));
-                        
-                        e1C_2 = eMon([c1_2(k) t1_2(i,j)],time);
-                        e1C_2 = conv(e1C_2,irf./sum(irf));
-                        e1C_2 = e1C_2(1:nTG);
-                        e1C_2 = poissrnd(round(e1C_2'));                       
-                        
-                        e2C_1 = eMon([c2_1(k) t2_1(i,j)],time);
-                        e2C_1 = conv(e2C_1,irf./sum(irf));
-                        e2C_1 = e2C_1(1:nTG);
-                        e2C_1 = poissrnd(round(e2C_1'));
-                        
-                        e2C_2 = eMon([c2_2(k) t2_2(i,j)],time);
-                        e2C_2 = conv(e2C_2,irf./sum(irf));
-                        e2C_2 = e2C_2(1:nTG);
-                        e2C_2 = poissrnd(round(e2C_2'));
-                       
-                        
-                        
-                        
-                        eTC = poissrnd(round(e1C_1'+e1C_2'+e2C_1'+e2C_2'));
-                        eTC = eTC + max(rand(256,1).*6 - 3,0);
-                        cw(i,j,k) = sum(eTC);
-                        rVal = rand();
-                        if rVal > .75
-                            rG = round(rand()*2 +1);
-                            eTC = [zeros(rG,1);eTC];
-                        elseif rVal < .25
-                            rG = round(rand()*2 +1);
-                            eTC = [eTC; zeros(rG,1)];
-                        end
-                        eTC = eTC(1:256);
-                        tpsfs(i,j,k,:) = eTC;
-                    end                    
+            % Random emission profile of fluorophore # 1
+            c1_1 = d1N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
+            % Random emission profile of fluorophore # 2
+            c1_2 = d1N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
+            % Random emission profile of fluorophore # 3
+            c2_1 = d2N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
+            % Random emission profile of fluorophore # 4
+            c2_2 = d2N(:,max(round(rand()*size(d1N,2)),1)).*(rand()*500 + 75);
+            
+            % ^^ Concatenated ^^
+            cS = [c1_1 c1_2 c2_1 c2_2];
+            
+            % Random binary assignment of size [specieN, 1]
+            cF = round(rand(specieN,1));
+            % Assign cF to its spatial location
+            cIm(i,j,:) = cF;
+            
+            % Pre-allocate for TPSF data per fluorophore per channel.
+            tpsfC1_1 = zeros(nTG,channels);
+            tpsfC1_2 = zeros(nTG,channels);
+            tpsfC2_1 = zeros(nTG,channels);
+            tpsfC2_2 = zeros(nTG,channels);
+
+            for v = 1:specieN
+                % Skip when fluorophores aren't assigned
+                if cF(v) == 0
+                    continue
                 end
+                % Fluorophore #1
+                if v == 1
+                    for ch = 1:channels
+                        % Create mono-exponential for fluorophore #1
+                        eC = eMon([c1_1(ch) t1_1(i,j)],time);
+                        % IRF convolution
+                        eC = conv(eC,irf);
+                        % Sample back to total # time-points
+                        eC = eC(1:nTG);
+                        eC = round(eC');
+                        % Assign to TPSF array
+                        tpsfC1_1(:,ch) = eC;
+                    end
+                    % Sum over time to get CW for fluorophore #1
+                    rAll(i,j,:,v) = sum(tpsfC1_1)';
+                % Fluorophore #2
+                elseif v == 2
+                    for ch = 1:channels
+                        % Create mono-exponential for fluorophore #2
+                        eC = eMon([c1_2(ch) t1_2(i,j)],time);
+                        eC = conv(eC,irf);
+                        % Sample back to total # time-points
+                        eC = eC(1:nTG);
+                        eC = round(eC');
+                        % Assign to TPSF array
+                        tpsfC1_2(:,ch) = eC;
+                    end
+                    % Sum over time to get CW for fluorophore #2
+                    rAll(i,j,:,v) = sum(tpsfC1_2)';
+                % etc., etc., etc...
+                elseif v == 3
+                    for ch = 1:channels
+                        eC = eMon([c2_1(ch) t2_1(i,j)],time);
+                        eC = conv(eC,irf);
+                        eC = eC(1:nTG);
+                        eC = round(eC');
+                        tpsfC2_1(:,ch) = eC;
+                    end
+                    rAll(i,j,:,v) = sum(tpsfC2_1)';
+                elseif v == 4
+                    for ch = 1:channels
+                        eC = eMon([c2_2(ch) t2_2(i,j)],time);
+                        eC = conv(eC,irf);
+                        eC = eC(1:nTG);
+                        eC = round(eC');
+                        tpsfC2_2(:,ch) = eC;
+                    end
+                    rAll(i,j,:,v) = sum(tpsfC2_2)';
+                % **Add/subtract 'elseif' statements as needed for target 
+                % number of fluorophores **
+                end
+            end
+        % Sum all HFLI data from each fluorophore
+        tpsfC = round(tpsfC1_1 + tpsfC1_2 + tpsfC2_1 + tpsfC2_2);
+        % Poisson noise
+        tpsfs(i,j,:,:) = poissrnd(permute(tpsfC,[2 1]));
+        % Assign spatially generated CW over all TPSFs
+        cw(i,j,:) = sum(rAll(i,j,:,:),4);
         end
     end
-    %% Coefficient determination
-    c = zeros(nX,nY,4); % pre-allocate
+    
+    % Pre-allocate for abundance coefficient values
+    c = zeros(nX,nY,specieN);
+    
     for i = 1:nX
         for j = 1:nY
             curCW=squeeze(cw(i,j,:));
             if sum(curCW) == 0
                 continue
             end
+                % Nonlinear spectral decomposition
                 valsC = lsqnonneg([mean(d1,2) mean(d2,2)],curCW);
-                c(i,j,1) = valsC(1)*(max(squeeze(r1All_1(i,j,:)))/max(squeeze(r1All_1(i,j,:))+squeeze(r1All_2(i,j,:))));
-                c(i,j,2) = valsC(1)*(max(squeeze(r1All_2(i,j,:)))/max(squeeze(r1All_1(i,j,:))+squeeze(r1All_2(i,j,:))));
-                c(i,j,3) = valsC(2)*(max(squeeze(r2All_1(i,j,:)))/max(squeeze(r2All_1(i,j,:))+squeeze(r2All_2(i,j,:))));
-                c(i,j,4) = valsC(2)*(max(squeeze(r2All_2(i,j,:)))/max(squeeze(r2All_1(i,j,:))+squeeze(r2All_2(i,j,:))));
+                % Obtain fluorophore/spatially-specific CW values
+                r1_1 = squeeze(rAll(i,j,:,1));
+                r1_2 = squeeze(rAll(i,j,:,2));
+                r2_1 = squeeze(rAll(i,j,:,3));
+                r2_2 = squeeze(rAll(i,j,:,4));
                 
-                if isnan(max(squeeze(r1All_1(i,j,:)))/max(squeeze(r1All_1(i,j,:))+squeeze(r1All_2(i,j,:)))) == 1
+                % Ensure abundance coefficients of fluorophores with same 
+                % emission spectra are correctly retrieved.
+                c(i,j,1) = valsC(1)*(max(r1_1)/max(r1_1+r1_2));
+                c(i,j,2) = valsC(1)*(max(r1_2)/max(r1_1+r1_2));
+                c(i,j,3) = valsC(2)*(max(r2_1)/max(r2_1+r2_2));
+                c(i,j,4) = valsC(2)*(max(r2_2)/max(r2_1+r2_2));
+                
+                % Ensure NaN values aren't left around
+                if isnan(max(r1_1)/max(r1_1+r1_2)) == 1
                     c(i,j,1:2) = zeros([2 1]);
-                elseif isnan(max(squeeze(r1All_2(i,j,:)))/max(squeeze(r1All_1(i,j,:))+squeeze(r1All_2(i,j,:)))) == 1
+                elseif isnan(max(r1_2)/max(r1_1+r1_2)) == 1
                     c(i,j,1:2) = zeros([2 1]);
-                elseif isnan(max(squeeze(r2All_1(i,j,:)))/max(squeeze(r2All_1(i,j,:))+squeeze(r2All_2(i,j,:)))) == 1
+                elseif isnan(max(r2_1)/max(r2_1+r2_2)) == 1
                     c(i,j,3:4) = zeros([2 1]);
-                elseif isnan(max(squeeze(r2All_2(i,j,:)))/max(squeeze(r2All_1(i,j,:))+squeeze(r2All_2(i,j,:)))) == 1
+                elseif isnan(max(r2_2)/max(r2_1+r2_2)) == 1
                     c(i,j,3:4) = zeros([2 1]);
                 end
         end
     end
+    
+    % Label simulation data
     if q >=0 && q < 10
         n = ['0000' num2str(q)];
     elseif q >=10 && q<100
@@ -607,17 +202,23 @@ for q = 1:num
     else
         n = num2str(q);
     end
-    c(:,:,1) = c(:,:,1).*c1Im_1;
-    c(:,:,2) = c(:,:,2).*c1Im_2;
-    c(:,:,3) = c(:,:,3).*c2Im_1;
-    c(:,:,4) = c(:,:,4).*c2Im_2;
     
-    t1_1 = t1_1.*c1Im_1;
-    t1_2 = t1_2.*c1Im_2;
-    t2_1 = t2_1.*c2Im_1;
-    t2_2 = t2_2.*c2Im_2;
+    % Apply binary mask to abundance coefficients (takes care of spectral
+    % bleedthrough)
+    c = c.*cIm;
     
+    % Create tau matrix and do same
+    tau = zeros(nX, nY, specieN);
+    tau(:,:,1) = t1_1;
+    tau(:,:,2) = t1_2;
+    tau(:,:,3) = t2_1;
+    tau(:,:,4) = t2_2;
+    tau = tau.*cIm;
+    
+    % Assign directory for saving
     fileDir = '';
-    save([fileDir '\a_' n], 'c','cw','tpsfs','t1_1','t1_2','t2_1', 't2_2', '-v7.3')
+    % Save
+    save([fileDir '\a_' n], 'c','cw','tpsfs','tau', '-v7.3');
+    q = q+1;
 end
 
