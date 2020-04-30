@@ -21,9 +21,9 @@ Authors: [Jason T. Smith](https://www.researchgate.net/profile/Jason_Smith96), [
 ### Relevant Work:
 
 #### [Original preprint](https://www.biorxiv.org/content/10.1101/745216v2)
-- Smith JT, Ochoa M, Intes X. _Spectral and Fluorescence lifetime unmixing via deep learning_. bioRxiv. 2019 Aug 24:745216v1.
+- Smith JT, Ochoa M, Intes X. "Spectral and lifetime fluorescence unmixing via deep learning." bioRxiv (2020): 745216.
 
-#### [OSA Biophotonics Congress 2020 proceeding & presentation](https://www.osapublishing.org/abstract.cfm?uri=OTS-2020-SW1D.5)
+#### [OSA Biophotonics Congress Proceeding & Virtual Presentation](https://www.osapublishing.org/abstract.cfm?uri=OTS-2020-SW1D.5)
 - Smith JT, Ochoa M, Intes X. _"Hyperspectral Lifetime Unmixing via Deep Learning,_" in Biophotonics Congress: Biomedical Optics 2020 (Translational, Microscopy, OCT, OTS, BRAIN), OSA Technical Digest (Optical Society of America, 2020), paper SW1D.5
 
 --------------------------------------------------------------
