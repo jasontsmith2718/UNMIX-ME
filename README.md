@@ -20,6 +20,9 @@ Authors: [Jason T. Smith](https://www.researchgate.net/profile/Jason_Smith96), [
 
 ### Relevant Work:
 
+#### [Biomedical Optics Express Manuscript](https://doi.org/10.1364/BOE.391992)
+- Smith JT, Ochoa M, Intes X. _"UNMIX-ME: spectral and lifetime fluorescence unmixing via deep learning."_ Biomedical Optics Express. 2020 Jul 1;11(7):3857-74.
+
 #### [Original preprint](https://www.biorxiv.org/content/10.1101/745216v2)
 - Smith JT, Ochoa M, Intes X. _"Spectral and lifetime fluorescence unmixing via deep learning."_ bioRxiv (2020): 745216.
 
