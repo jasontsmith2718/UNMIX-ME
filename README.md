@@ -30,3 +30,8 @@ Authors: [Jason T. Smith](https://www.researchgate.net/profile/Jason_Smith96), [
 - Smith JT, Ochoa M, Intes X. _"Hyperspectral Lifetime Unmixing via Deep Learning,_" in Biophotonics Congress: Biomedical Optics 2020 (Translational, Microscopy, OCT, OTS, BRAIN), OSA Technical Digest (Optical Society of America, 2020), paper SW1D.5
 
 --------------------------------------------------------------
+
+### Funding:
+
+#### National Institutes of Health (R01 CA207725, R01 CA237267, R01 EB19443)
+
